@@ -73,7 +73,6 @@ function createWindow(): void {
             accDataTemp.splice(sensorAccDataTempIndex[id], 1, acc);
             collectTimeTemp.splice(sensorAccDataTempIndex[id], 1, time);
           } else {
-            // const a: [number][] = acc.map((item) => [item]);
             const len = accDataTemp.push(acc);
             collectTimeTemp.push(time);
             sensorAccDataTempIndex[id] = len - 1;
@@ -98,6 +97,17 @@ function createWindow(): void {
 
             data[i] = a;
           }
+          const acc = syncWithoutSource(data, collectTimeTemp);
+          const accPath = path.join(process.cwd(), `./temp/acc_processed_${transferTime}.csv`);
+          const accStream = fs.createWriteStream(accPath);
+          csv
+            .writeToStream(accStream, acc, { headers: false, delimiter: ',' })
+            .on('finish', () => {
+              console.log(`ACC CSV 文件已保存到 ${savePath}`);
+            })
+            .on('error', (err) => {
+              console.error('写入 CSV 文件时出错:', err);
+            });
           csv
             .writeToStream(stream, data, { headers: false, delimiter: ',' })
             .on('finish', () => {
@@ -199,3 +209,43 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
+
+function syncWithoutSource(accAllData: number[][], timeAllData: number[]) {
+  // 假设accAllData是一个二维数组，timeAllData是一个一维数组
+  const channelNum = timeAllData.length;
+  const accNum = 40000; // 固定的加速度数据样本数量
+  const sampleRate = 125; // 假设采样率为125Hz
+
+  // 计算时间偏移量（以样本为单位）
+  const timMax = Math.max(...timeAllData);
+  const timOffset = timeAllData.map((tim) => timMax - tim);
+  const sampleOffset = timOffset.map((offset) => Math.round(offset / sampleRate));
+
+  // 初始化加速度数据数组
+  const acc: number[][] = Array.from({ length: accNum }, () => Array(channelNum).fill(1));
+
+  // 处理每个通道的数据
+  for (let i = 0; i < channelNum; i++) {
+    const validSamples = accNum - sampleOffset[i];
+    const startIdx = sampleOffset[i];
+    // const endIdx = startIdx + validSamples;
+
+    // 填充有效数据
+    for (let j = 0; j < validSamples; j++) {
+      acc[j][i] = accAllData[startIdx + j][i];
+    }
+
+    // 填充剩余数据（这里使用0作为示例，实际可能需要其他方式）
+    for (let j = validSamples; j < accNum; j++) {
+      acc[j][i] = 0; // 或者使用某种插值方法
+    }
+
+    // 去均值处理
+    const mean = acc.reduce((sum, row) => sum + row[i], 0) / accNum;
+    for (let j = 0; j < accNum; j++) {
+      acc[j][i] -= mean;
+    }
+  }
+
+  return acc;
+}
