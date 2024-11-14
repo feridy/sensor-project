@@ -24,11 +24,16 @@
     "@ant-design/icons-vue": "^7.0.1",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@stdlib/stdlib": "^0.3.0",
     "ant-design-vue": "4.x",
+    "convert-csv-to-array": "^1.0.3",
+    "csv-parse": "^5.5.6",
+    "danfojs": "^1.1.2",
     "electron-log": "^5.2.2",
     "electron-updater": "^6.1.7",
     "lodash": "^4.17.21",
-    "mqtt": "^5.10.1"
+    "mqtt": "^5.10.1",
+    "numeric": "^1.2.6"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^1.0.2",

@@ -103,7 +103,7 @@ function createWindow(): void {
           csv
             .writeToStream(accStream, acc, { headers: false, delimiter: ',' })
             .on('finish', () => {
-              console.log(`ACC CSV 文件已保存到 ${savePath}`);
+              console.log(`ACC CSV 文件已保存到 ${accPath}`);
             })
             .on('error', (err) => {
               console.error('写入 CSV 文件时出错:', err);
@@ -125,7 +125,7 @@ function createWindow(): void {
               { headers: false, delimiter: ',' }
             )
             .on('finish', () => {
-              console.log(`时间的CSV文件已保存到 ${savePath}`);
+              console.log(`时间的CSV文件已保存到 ${timePath}`);
             })
             .on('error', (err) => {
               console.error('写入 CSV 文件时出错:', err);
@@ -209,7 +209,7 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
-
+// 将加速度与时间进行处理，整理成一个文件，用来生成图标使用
 function syncWithoutSource(accAllData: number[][], timeAllData: number[]) {
   // 假设accAllData是一个二维数组，timeAllData是一个一维数组
   const channelNum = timeAllData.length;
