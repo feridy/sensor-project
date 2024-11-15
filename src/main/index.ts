@@ -1,13 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
-import path, { join } from 'path';
+import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { connectMQTTServer } from './handler';
 import { MqttClient } from 'mqtt';
 import { initMainLog } from './log';
-import * as csv from 'fast-csv';
-import dayjs from 'dayjs';
+// import * as csv from 'fast-csv';
+// import dayjs from 'dayjs';
 import fs from 'fs-extra';
+import { spawn } from 'child_process';
 
 initMainLog();
 
@@ -47,9 +48,7 @@ function createWindow(): void {
 
   // 要进行回传的传感器id的列表
   const collectAccDataSensorIds = new Set<number>();
-  const accDataTemp: number[][] = [];
-  const collectTimeTemp: number[] = [];
-  let sensorAccDataTempIndex: Record<number, number> = {};
+  const receiveAccDataSensorIds = new Set<number>();
 
   // mqtt的处理
   ipcMain.handle('INIT_MQTT', async () => {
@@ -66,75 +65,43 @@ function createWindow(): void {
         mainWindow.webContents.send('MQTT_CONNECT');
         MQTT_CLIENT = client;
       },
-      (id, acc, time) => {
+      async (id: number) => {
+        receiveAccDataSensorIds.add(id);
         // 如果是手动触发的，收到数据就在列表中移除
-        if (collectAccDataSensorIds.has(id)) {
-          if (collectTimeTemp[id] !== undefined) {
-            accDataTemp.splice(sensorAccDataTempIndex[id], 1, acc);
-            collectTimeTemp.splice(sensorAccDataTempIndex[id], 1, time);
-          } else {
-            const len = accDataTemp.push(acc);
-            collectTimeTemp.push(time);
-            sensorAccDataTempIndex[id] = len - 1;
-          }
-        }
         // 全部数据收集完成后将数据保存到csv文件中
-        if (
-          accDataTemp.length &&
-          collectAccDataSensorIds.size === [...collectTimeTemp.values()].length
-        ) {
-          const transferTime = dayjs().format('YYYY-MM-DD_HH_mm_ss');
-          const savePath = path.join(process.cwd(), `./temp/acc_raw_${transferTime}.csv`);
-          const stream = fs.createWriteStream(savePath);
-          const count = collectAccDataSensorIds.size;
-          const data: number[][] = [];
-          const length = Math.max(...accDataTemp.map((item) => item.length));
-          for (let i = 0; i < length; i++) {
-            const a: number[] = [];
-            accDataTemp.forEach((item) => {
-              a.push(item[i] || 0);
-            });
+        if (collectAccDataSensorIds.size === receiveAccDataSensorIds.size) {
+          const args = [...receiveAccDataSensorIds].map((item) =>
+            join(process.cwd(), `./temp/${item}`)
+          );
+          await fs.ensureDir(join(process.cwd(), './temp'));
+          // 执行python脚本
+          const childProcess = spawn(join(process.cwd(), './libs/save_acc'), [args.join(',')]);
+          childProcess.stdout.on('data', (data) => {
+            console.log(`stdout: ${data}`);
+          });
+          childProcess.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`);
+          });
+          childProcess.on('close', (code) => {
+            console.log(`child process exited with code ${code}`);
+            if (code === 0) {
+              console.log('子进程执行成功');
+              // 完成了采集的数据的回传
+              mainWindow.webContents.send(
+                'RECEIVE_ACC_SUCCESS',
+                JSON.stringify(receiveAccDataSensorIds)
+              );
+              args.forEach(async (item) => {
+                fs.remove(item);
+              });
+            } else {
+              console.error(`子进程执行失败，退出码：${code}`);
+            }
+          });
 
-            data[i] = a;
-          }
-          const acc = syncWithoutSource(data, collectTimeTemp);
-          const accPath = path.join(process.cwd(), `./temp/acc_processed_${transferTime}.csv`);
-          const accStream = fs.createWriteStream(accPath);
-          csv
-            .writeToStream(accStream, acc, { headers: false, delimiter: ',' })
-            .on('finish', () => {
-              console.log(`ACC CSV 文件已保存到 ${accPath}`);
-            })
-            .on('error', (err) => {
-              console.error('写入 CSV 文件时出错:', err);
-            });
-          csv
-            .writeToStream(stream, data, { headers: false, delimiter: ',' })
-            .on('finish', () => {
-              console.log(`一共${count}加速度的CSV 文件已保存到 ${savePath}`);
-            })
-            .on('error', (err) => {
-              console.error('写入 CSV 文件时出错:', err);
-            });
-          const timePath = path.join(process.cwd(), `./temp/time_raw_${transferTime}.csv`);
-          const timeStream = fs.createWriteStream(timePath);
-          csv
-            .writeToStream(
-              timeStream,
-              collectTimeTemp.map((item) => [item]),
-              { headers: false, delimiter: ',' }
-            )
-            .on('finish', () => {
-              console.log(`时间的CSV文件已保存到 ${timePath}`);
-            })
-            .on('error', (err) => {
-              console.error('写入 CSV 文件时出错:', err);
-            });
-
-          collectTimeTemp.length = 0;
-          accDataTemp.length = 0;
-          collectAccDataSensorIds.clear();
-          sensorAccDataTempIndex = {};
+          childProcess.on('error', (e) => {
+            console.log(e);
+          });
         }
       }
     );
@@ -145,10 +112,6 @@ function createWindow(): void {
   });
   // 触发回传数据的指令
   ipcMain.handle('COLLECT_ACC_DATA', (_, id: string) => {
-    // 重置内存
-    // accDataTemp.length = 0;
-    // collectTimeTemp.length = 0;
-    // collectAccDataSensorIds.add(id);
     // 针对全部的处理
     if (id.toLowerCase() === 'ff') {
       for (let i = 1; i <= 100; i++) {
@@ -209,43 +172,3 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
-// 将加速度与时间进行处理，整理成一个文件，用来生成图标使用
-function syncWithoutSource(accAllData: number[][], timeAllData: number[]) {
-  // 假设accAllData是一个二维数组，timeAllData是一个一维数组
-  const channelNum = timeAllData.length;
-  const accNum = 40000; // 固定的加速度数据样本数量
-  const sampleRate = 125; // 假设采样率为125Hz
-
-  // 计算时间偏移量（以样本为单位）
-  const timMax = Math.max(...timeAllData);
-  const timOffset = timeAllData.map((tim) => timMax - tim);
-  const sampleOffset = timOffset.map((offset) => Math.round(offset / sampleRate));
-
-  // 初始化加速度数据数组
-  const acc: number[][] = Array.from({ length: accNum }, () => Array(channelNum).fill(1));
-
-  // 处理每个通道的数据
-  for (let i = 0; i < channelNum; i++) {
-    const validSamples = accNum - sampleOffset[i];
-    const startIdx = sampleOffset[i];
-    // const endIdx = startIdx + validSamples;
-
-    // 填充有效数据
-    for (let j = 0; j < validSamples; j++) {
-      acc[j][i] = accAllData[startIdx + j][i];
-    }
-
-    // 填充剩余数据（这里使用0作为示例，实际可能需要其他方式）
-    for (let j = validSamples; j < accNum; j++) {
-      acc[j][i] = 0; // 或者使用某种插值方法
-    }
-
-    // 去均值处理
-    const mean = acc.reduce((sum, row) => sum + row[i], 0) / accNum;
-    for (let j = 0; j < accNum; j++) {
-      acc[j][i] -= mean;
-    }
-  }
-
-  return acc;
-}

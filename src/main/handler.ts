@@ -5,7 +5,7 @@ import fs from 'fs-extra';
 
 const host = '127.0.0.1';
 
-const accNum = 40000;
+// const accNum = 40000;
 
 function mockData() {
   const buf = fs.readFileSync(path.join(process.cwd(), './test/data1.txt'), 'utf-8');
@@ -24,7 +24,7 @@ function mockData() {
 export function connectMQTTServer(
   onGeoPhoneStatus?: (payload: string) => void,
   onConnect?: (client: MqttClient) => void,
-  onGeoPhoneData?: (id: number, accAllData: number[], timeData: number) => void
+  onGeoPhoneData?: (payload: number) => void
 ) {
   const client = connect(
     !import.meta.env.DEV
@@ -57,24 +57,13 @@ export function connectMQTTServer(
     // 收集数据的处理
     if (topic === '/geophone/data') {
       if (import.meta.env.DEV) payload = mockData();
-      const accData: number[] = [];
-      // 打印传感器编号
       const channel = payload.subarray(-1)[0];
-      const time = payload.subarray(-9, -1).readUIntLE(0, 6);
+      // const time = payload.subarray(-9, -1).readUIntLE(0, 6);
+      // 写入数据写入到本地文件中，为了接下来的python脚本程序使用
+      await fs.ensureDir(path.join(process.cwd(), './temp'));
+      await fs.writeFile(path.join(process.cwd(), `./temp/${channel}`), payload);
 
-      for (let i = 0; i < accNum; i++) {
-        const accTemp = payload.subarray(3 * i, 3 * i + 3).readUIntLE(0, 3);
-        let a = 0;
-        if (accTemp >= 8388608) {
-          a = (accTemp - 16777216) / 3750000;
-        } else {
-          a = accTemp / 3750000;
-        }
-
-        accData.push(a);
-      }
-
-      onGeoPhoneData?.(channel, accData, time);
+      onGeoPhoneData?.(channel);
     }
   });
 

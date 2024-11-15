@@ -13,6 +13,8 @@ asarUnpack:
   - resources/**
 extraFiles:
   - log
+  - temp
+  - libs
 win:
   executableName: sensor-project
 nsis:
