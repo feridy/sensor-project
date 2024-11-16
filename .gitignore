@@ -6,4 +6,5 @@ logs
 test
 temp
 build
+*.exe
 *.log*
