@@ -75,12 +75,20 @@ function createWindow(): void {
           );
           await fs.ensureDir(join(process.cwd(), './temp'));
           // 执行python脚本
-          const childProcess = spawn(join(process.cwd(), './libs/save_acc'), [args.join(',')]);
+          const childProcess = spawn(join(process.cwd(), './libs/save_acc.exe'), [args.join(',')]);
           childProcess.stdout.on('data', (data) => {
             console.log(`stdout: ${data}`);
+            try {
+              const json = JSON.parse(data);
+              // 处理结果
+              mainWindow.webContents.send('RECEIVE_ACC_HANDLE_RESULT', JSON.stringify(json));
+            } catch (error) {
+              console.log(error);
+            }
           });
           childProcess.stderr.on('data', (data) => {
             console.log(`stderr: ${data}`);
+            mainWindow.webContents.send('RECEIVE_ACC_Fail', data);
           });
           childProcess.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
@@ -97,6 +105,11 @@ function createWindow(): void {
             } else {
               console.error(`子进程执行失败，退出码：${code}`);
             }
+
+            mainWindow.webContents.send(
+              'RECEIVE_ACC_COMPLETE',
+              JSON.stringify(receiveAccDataSensorIds)
+            );
           });
 
           childProcess.on('error', (e) => {

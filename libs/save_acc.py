@@ -2,6 +2,8 @@ import sys
 import time
 import numpy as np
 import os
+import json
+import matplotlib.pyplot as plt
 
 
 def sync_without_source(acc_all_data, time_all_data):
@@ -13,7 +15,7 @@ def sync_without_source(acc_all_data, time_all_data):
     tim_max = time_data.max()
     tim_offset = tim_max - time_data
     sample_offset = np.round(tim_offset / 125)
-    print(sample_offset)
+    # print(sample_offset)
 
     acc = np.ones((acc_num, channel_num))
 
@@ -39,7 +41,7 @@ def sync_with_source(acc_all_data, time_all_data):
     tim_max = time_data.max()
     tim_offset = tim_max - time_data
     sample_offset = np.round(tim_offset / 125)
-    print(sample_offset)
+    # print(sample_offset)
 
     acc = np.ones((acc_num, channel_num))
 
@@ -77,7 +79,7 @@ if len(sys.argv) > 1:
         with open(sensor_file[j], "rb") as file:
             binary_content = file.read()
     channel_count = binary_content[-1]  # 获得传感器编号
-    print(channel_count)  # 打印传感器编号
+    # print(channel_count)  # 打印传感器编号
 
     for i in range(acc_num):  # 对加速度数据进行解编
         acc_temp = int.from_bytes(binary_content[3 * i : 3 * i + 3], byteorder="little")
@@ -96,16 +98,34 @@ if len(sys.argv) > 1:
     if (
         data_flag.sum() == channel_num
     ):  # 判断所有数据是否都已经回传成功，如成功则保存加速度和采集时刻数据
-        if len(sys.argv) > 3 and sys.argv[2] == "sync_with_source":
-            acc = sync_with_source(acc_all_data=acc_data, time_all_data=time_data)
+        acc = sync_without_source(acc_all_data=acc_data, time_all_data=time_data)
+        if len(sys.argv) >= 3:
+            transfer_time = sys.argv[2]
         else:
-            acc = sync_without_source(acc_all_data=acc_data, time_all_data=time_data)
-        transfer_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
+            transfer_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
+        if len(sys.argv) >= 4:
+            output_path = sys.argv[3]
+        else:
+            output_path = "./temp/figure" + transfer_time + ".png"
         np.savetxt("./temp/acc" + transfer_time + ".csv", acc_data, delimiter=",")
         np.savetxt("./temp/time" + transfer_time + ".csv", time_data, delimiter=",")
         np.savetxt("./temp/acc_processed_" + transfer_time + ".csv", acc, delimiter=",")
+        plt.plot(acc)
+        plt.savefig(output_path)
+        data = {
+            "status": 1,
+            "acc_image": output_path,
+            "acc_path": "./temp/acc" + transfer_time + ".csv",
+            "time_path": "./temp/time" + transfer_time + ".csv",
+            "acc_processed": "./temp/acc_processed_" + transfer_time + ".csv",
+        }
+        json_string = json.dumps(data)
+        print(json_string)
 
 
 else:
-    print("No arguments provided.")
-    exit()
+    # print("No arguments provided.")
+    data = {"status": 0, "message": "No arguments provided."}
+    json_string = json.dumps(data)
+    print(json_string)
+    # exit()

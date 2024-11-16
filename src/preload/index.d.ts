@@ -5,6 +5,7 @@ declare global {
     electron: ElectronAPI;
     api: {
       initMQTTClient: () => Promise<void>;
+      getAccProcessedPath: (src: string) => Promise<string>;
     };
   }
 }

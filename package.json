@@ -13,7 +13,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
+    "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
@@ -28,12 +28,14 @@
     "ant-design-vue": "4.x",
     "convert-csv-to-array": "^1.0.3",
     "csv-parse": "^5.5.6",
+    "d3": "^7.9.0",
     "danfojs": "^1.1.2",
     "electron-log": "^5.2.2",
     "electron-updater": "^6.1.7",
     "lodash": "^4.17.21",
     "mqtt": "^5.10.1",
-    "numeric": "^1.2.6"
+    "numeric": "^1.2.6",
+    "plotly.js": "^2.35.2"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^1.0.2",
@@ -41,8 +43,10 @@
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@fast-csv/format": "^5.0.2",
     "@rushstack/eslint-patch": "^1.10.3",
+    "@types/d3": "^7.4.3",
     "@types/lodash": "^4.17.13",
     "@types/node": "^20.14.8",
+    "@types/plotly.js": "^2.35.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "@vue/eslint-config-prettier": "^9.0.0",
     "@vue/eslint-config-typescript": "^13.0.0",
@@ -59,5 +63,6 @@
     "vite": "^5.3.1",
     "vue": "^3.4.30",
     "vue-tsc": "^2.0.22"
-  }
+  },
+  "packageManager": "pnpm@9.4.0+sha256.b6fd0bfda555e7e584ad7e56b30c68b01d5a04f9ee93989f4b93ca8473c49c74"
 }

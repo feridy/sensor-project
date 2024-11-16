@@ -1,10 +1,22 @@
 import { contextBridge } from 'electron';
+// import fs from 'fs-extra';
+import path from 'path';
+import url from 'url';
 import { electronAPI } from '@electron-toolkit/preload';
 
 // Custom APIs for renderer
 const api = {
   initMQTTClient: async () => {
     await electronAPI.ipcRenderer.invoke('INIT_MQTT');
+  },
+  getAccProcessedPath: async (src: string) => {
+    const filePath = path.join(process.cwd(), src);
+    // 将文件路径转换为 file:// 协议的路径
+    const fileUrl = url.pathToFileURL(filePath).href;
+
+    console.log(fileUrl);
+
+    return fileUrl;
   }
 };
 

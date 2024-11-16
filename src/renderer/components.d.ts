@@ -8,8 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AConfigProvider: typeof import('ant-design-vue/es')['ConfigProvider']
-    Layout: typeof import('./src/components/Layout.vue')['default']
+    D3: typeof import('./src/components/D3.vue')['default']
     Main: typeof import('./src/components/Main.vue')['default']
-    Versions: typeof import('./src/components/Versions.vue')['default']
   }
 }

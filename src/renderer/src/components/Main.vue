@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { Row, Col, Checkbox, Button, Space, Empty, Modal, message } from 'ant-design-vue';
+import { Row, Col, Checkbox, Button, Space, Empty, Modal, message, Spin } from 'ant-design-vue';
 import { SyncOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import { onMounted, ref, h, createVNode } from 'vue';
+import D3 from './D3.vue';
 const onLineIds = ref<Record<number, number>>({});
 const selectSensors = ref<number[]>([]);
 const sensors = ref<number[]>([]);
+const isHandling = ref(false);
+const accProcessUrl = ref('');
 
 function showStatusText(status: number) {
   if (status === 1) {
@@ -72,6 +75,10 @@ function sendGatherCommand() {
   });
 }
 function sendPassBackCommand() {
+  if (isHandling.value) {
+    message.error('上次回传还未完成，请稍等...');
+    return;
+  }
   if (!selectSensors.value.length) {
     message.error('没有选中传感器');
     return;
@@ -94,6 +101,7 @@ function sendPassBackCommand() {
             item.toString(16).padStart(2, '0')
           );
         }
+        accProcessUrl.value = '';
         // 等待数据回传，如时间设定较短可能造成网络拥堵
         timeId = setInterval(() => {
           const item = list.shift();
@@ -110,6 +118,7 @@ function sendPassBackCommand() {
       }).catch(() => console.log('Oops errors!'));
     },
     afterClose() {
+      isHandling.value = true;
       clearInterval(timeId);
     }
   });
@@ -126,6 +135,19 @@ onMounted(async () => {
 
   window.electron.ipcRenderer.on('MQTT_CONNECT', () => {
     window.electron.ipcRenderer.invoke('CHECK_SENSOR_STATE', 'ff');
+  });
+
+  window.electron.ipcRenderer.on('RECEIVE_ACC_HANDLE_RESULT', (_, message) => {
+    console.log(message);
+    const data = JSON.parse(message);
+    if (data.status === 1) {
+      accProcessUrl.value = data.acc_processed;
+      message.success('回传完成...');
+    }
+  });
+
+  window.electron.ipcRenderer.on('RECEIVE_ACC_COMPLETE', () => {
+    isHandling.value = false;
   });
 });
 </script>
@@ -248,15 +270,32 @@ onMounted(async () => {
               <Col :span="24" style="height: 100%; padding: 20px">
                 <div
                   style="
+                    position: relative;
                     border: 1px solid #ccc;
                     border-radius: 8px;
                     height: 100%;
+                    width: 100%;
                     display: flex;
                     justify-content: center;
                     align-items: center;
                   "
                 >
-                  <Empty style="color: #ccc" />
+                  <D3 v-if="accProcessUrl" :url="accProcessUrl" />
+                  <Empty v-else style="color: #ccc" />
+                  <div
+                    v-if="isHandling"
+                    style="
+                      position: absolute;
+                      inset: 0;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      background-color: rgba(0, 0, 0, 0.8);
+                      z-index: 999;
+                    "
+                  >
+                    <Spin :spinning="true" tip="Handling..." />
+                  </div>
                 </div>
               </Col>
             </Row>

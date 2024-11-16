@@ -5,4 +5,5 @@ out
 logs
 test
 temp
+build
 *.log*
