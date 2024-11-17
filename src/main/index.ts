@@ -8,7 +8,7 @@ import { initMainLog } from './log';
 // import * as csv from 'fast-csv';
 // import dayjs from 'dayjs';
 import fs from 'fs-extra';
-import { spawn } from 'child_process';
+import { exec, spawn } from 'child_process';
 
 initMainLog();
 
@@ -67,8 +67,10 @@ function createWindow(): void {
       },
       async (id: number) => {
         receiveAccDataSensorIds.add(id);
+        const pythonGlobal = await checkPythonAvailability();
         console.log('collectAccDataSensorIds:', [...collectAccDataSensorIds]);
         console.log('receive acc data sensor no. -', id);
+
         // 全部数据收集完成后将数据保存到csv文件中
         if (collectAccDataSensorIds.size === receiveAccDataSensorIds.size) {
           const args = [...receiveAccDataSensorIds].map((item) =>
@@ -76,10 +78,10 @@ function createWindow(): void {
           );
           await fs.ensureDir(join(process.cwd(), './temp'));
           // 执行python脚本
-          const childProcess = spawn(path.join(process.cwd(), './.venv/bin/python'), [
-            join(process.cwd(), './libs/save_acc.py'),
-            args.join(',')
-          ]);
+          const childProcess = spawn(
+            pythonGlobal ? 'python' : path.join(process.cwd(), './.venv/bin/python'),
+            [join(process.cwd(), './libs/save_acc.py'), args.join(',')]
+          );
           childProcess.stdout.on('data', (data) => {
             console.log(`stdout: ${data}`);
             try {
@@ -156,9 +158,11 @@ function createWindow(): void {
     MQTT_CLIENT?.publish('/geophone/command', Buffer.from(command, 'hex'));
   });
   // 触发展示曲线的图
-  ipcMain.handle('SHOW_PLOT', (_, src: string) => {
+  ipcMain.handle('SHOW_PLOT', async (_, src: string) => {
+    const pythonGlobal = await checkPythonAvailability();
+    console.log(pythonGlobal);
     const childProcess = spawn(
-      path.join(process.cwd(), './.venv/bin/python'),
+      pythonGlobal ? 'python' : path.join(process.cwd(), './.venv/bin/python'),
       // join(process.cwd(), `./libs/${process.platform === 'win32' ? 'plot.exe' : 'plot'}`),
       [path.join(process.cwd(), './libs/plot.py'), join(process.cwd(), src)]
     );
@@ -226,3 +230,33 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
+
+function checkPythonAvailability() {
+  return new Promise((resolve) => {
+    exec('python --version', (error, stdout, stderr) => {
+      if (error) {
+        // 如果执行命令时出现错误，则 Python 可能不可用
+        console.error(`Error: ${error.message}`);
+        if (stderr) {
+          console.error(`stderr: ${stderr}`);
+        }
+        resolve(false); // Python 不可用
+      } else {
+        // 如果命令成功执行，则 Python 可用
+        console.log(`stdout: ${stdout}`);
+        resolve(true); // Python 可用
+      }
+    }).on('close', (code) => {
+      console.log(code);
+    });
+  });
+}
+
+// 使用示例
+checkPythonAvailability().then((isAvailable) => {
+  if (isAvailable) {
+    console.log('Python is globally available.');
+  } else {
+    console.log('Python is not globally available.');
+  }
+});

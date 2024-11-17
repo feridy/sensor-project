@@ -126,10 +126,10 @@ function sendPassBackCommand() {
   });
 }
 function showPlot() {
-  if (!accProcessUrl.value) {
-    message.error('还未获取到回传的数据');
-    return;
-  }
+  // if (!accProcessUrl.value) {
+  //   message.error('还未获取到回传的数据');
+  //   return;
+  // }
   window.electron.ipcRenderer.invoke('SHOW_PLOT', accProcessUrl.value);
 }
 
