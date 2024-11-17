@@ -1,7 +1,7 @@
 <!-- eslint-disable @typescript-eslint/no-unused-vars -->
 <!-- eslint-disable @typescript-eslint/no-explicit-any -->
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import Plotly from 'plotly.js-dist-min';
 import * as d3 from 'd3';
 const elRef = ref<HTMLDivElement>();
@@ -10,17 +10,10 @@ const props = defineProps<{ url: string }>();
 
 async function makeplot() {
   if (!props.url) return;
-  const url = await window.api.getAccProcessedPath(props.url);
+  const url = window.api.getFilePath(props.url);
   const data = await d3.csv(url);
-  const chartWidth = 1920;
 
-  // 保留每个像素的一个点
-  const downsampleFactor = Math.ceil(data.length / chartWidth);
-  const downsampledData = data.filter((_, i) => i % downsampleFactor === 0);
-  // console.log(data.columns);
-  (downsampledData as any).columns = data.columns;
-
-  processData(downsampledData as any);
+  processData(data);
 }
 
 function processData(allRows: d3.DSVRowArray<string>) {
@@ -38,7 +31,6 @@ function processData(allRows: d3.DSVRowArray<string>) {
 
     // console.log(row);
   }
-  // console.log('X', x, 'Y', y, 'SD', standard_deviation);
   makePlotly(x, y, standard_deviation);
 }
 

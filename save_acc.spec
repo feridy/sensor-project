@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['libs\\save_acc.py'],
+    ['libs/save_acc.py'],
     pathex=[],
     binaries=[],
     datas=[],

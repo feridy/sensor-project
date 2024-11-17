@@ -9,7 +9,7 @@ const api = {
   initMQTTClient: async () => {
     await electronAPI.ipcRenderer.invoke('INIT_MQTT');
   },
-  getAccProcessedPath: async (src: string) => {
+  getFilePath: (src: string) => {
     const filePath = path.join(process.cwd(), src);
     // 将文件路径转换为 file:// 协议的路径
     const fileUrl = url.pathToFileURL(filePath).href;

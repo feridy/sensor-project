@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
-import { join } from 'path';
+import path, { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { connectMQTTServer } from './handler';
@@ -67,7 +67,8 @@ function createWindow(): void {
       },
       async (id: number) => {
         receiveAccDataSensorIds.add(id);
-        // 如果是手动触发的，收到数据就在列表中移除
+        console.log('collectAccDataSensorIds:', [...collectAccDataSensorIds]);
+        console.log('receive acc data sensor no. -', id);
         // 全部数据收集完成后将数据保存到csv文件中
         if (collectAccDataSensorIds.size === receiveAccDataSensorIds.size) {
           const args = [...receiveAccDataSensorIds].map((item) =>
@@ -75,7 +76,10 @@ function createWindow(): void {
           );
           await fs.ensureDir(join(process.cwd(), './temp'));
           // 执行python脚本
-          const childProcess = spawn(join(process.cwd(), './libs/save_acc.exe'), [args.join(',')]);
+          const childProcess = spawn(path.join(process.cwd(), './.venv/bin/python'), [
+            join(process.cwd(), './libs/save_acc.py'),
+            args.join(',')
+          ]);
           childProcess.stdout.on('data', (data) => {
             console.log(`stdout: ${data}`);
             try {
@@ -110,8 +114,13 @@ function createWindow(): void {
               'RECEIVE_ACC_COMPLETE',
               JSON.stringify(receiveAccDataSensorIds)
             );
-          });
+            args.forEach(async (item) => {
+              fs.remove(item);
+            });
 
+            collectAccDataSensorIds.clear();
+            receiveAccDataSensorIds.clear();
+          });
           childProcess.on('error', (e) => {
             console.log(e);
           });
@@ -145,6 +154,38 @@ function createWindow(): void {
   ipcMain.handle('SEND_CUSTOM_COMMAND', (_, command: string) => {
     console.log(`------SEND_GATHER_DATA topic: /geophone/command, command: ${command} --------`);
     MQTT_CLIENT?.publish('/geophone/command', Buffer.from(command, 'hex'));
+  });
+  // 触发展示曲线的图
+  ipcMain.handle('SHOW_PLOT', (_, src: string) => {
+    const childProcess = spawn(
+      path.join(process.cwd(), './.venv/bin/python'),
+      // join(process.cwd(), `./libs/${process.platform === 'win32' ? 'plot.exe' : 'plot'}`),
+      [path.join(process.cwd(), './libs/plot.py'), join(process.cwd(), src)]
+    );
+    childProcess.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
+    });
+    childProcess.stderr.on('data', (data) => {
+      console.log(`stderr: ${data}`);
+    });
+    childProcess.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+      if (code === 0) {
+        console.log('子进程关闭');
+      } else {
+        console.error(`子进程执行失败，退出码：${code}`);
+      }
+
+      mainWindow.webContents.send('ACC_PLOT_CLOSE', src);
+    });
+    childProcess.on('error', (e) => {
+      console.log(e);
+    });
+  });
+  // 触发了刷新就要重置回传的数组
+  ipcMain.handle('RENDER_REFRESH', () => {
+    receiveAccDataSensorIds.clear();
+    collectAccDataSensorIds.clear();
   });
 }
 

@@ -2,12 +2,13 @@
 import { Row, Col, Checkbox, Button, Space, Empty, Modal, message, Spin } from 'ant-design-vue';
 import { SyncOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import { onMounted, ref, h, createVNode } from 'vue';
-import D3 from './D3.vue';
+// import D3 from './D3.vue';
 const onLineIds = ref<Record<number, number>>({});
 const selectSensors = ref<number[]>([]);
 const sensors = ref<number[]>([]);
 const isHandling = ref(false);
 const accProcessUrl = ref('');
+const accImage = ref('');
 
 function showStatusText(status: number) {
   if (status === 1) {
@@ -102,6 +103,7 @@ function sendPassBackCommand() {
           );
         }
         accProcessUrl.value = '';
+        accImage.value = '';
         // 等待数据回传，如时间设定较短可能造成网络拥堵
         timeId = setInterval(() => {
           const item = list.shift();
@@ -123,6 +125,13 @@ function sendPassBackCommand() {
     }
   });
 }
+function showPlot() {
+  if (!accProcessUrl.value) {
+    message.error('还未获取到回传的数据');
+    return;
+  }
+  window.electron.ipcRenderer.invoke('SHOW_PLOT', accProcessUrl.value);
+}
 
 onMounted(async () => {
   for (let i = 1; i <= 100; i++) {
@@ -137,11 +146,12 @@ onMounted(async () => {
     window.electron.ipcRenderer.invoke('CHECK_SENSOR_STATE', 'ff');
   });
 
-  window.electron.ipcRenderer.on('RECEIVE_ACC_HANDLE_RESULT', (_, message) => {
-    console.log(message);
-    const data = JSON.parse(message);
+  window.electron.ipcRenderer.on('RECEIVE_ACC_HANDLE_RESULT', async (_, dataMessage) => {
+    console.log(dataMessage);
+    const data = JSON.parse(dataMessage);
     if (data.status === 1) {
-      accProcessUrl.value = data.acc_processed;
+      accImage.value = window.api.getFilePath(data.acc_image);
+      accProcessUrl.value = data.acc_path;
       message.success('回传完成...');
     }
   });
@@ -261,8 +271,8 @@ onMounted(async () => {
                 <Space>
                   <Button type="primary" @click="sendGatherCommand">采集</Button>
                   <Button type="primary" @click="sendPassBackCommand">回传</Button>
-                  <Button type="primary">下发指令</Button>
-                  <Button type="primary">查看波形文件</Button>
+                  <!-- <Button type="primary">下发指令</Button> -->
+                  <Button type="primary" @click="showPlot">查看波形文件</Button>
                 </Space>
               </Col>
             </Row>
@@ -280,7 +290,12 @@ onMounted(async () => {
                     align-items: center;
                   "
                 >
-                  <D3 v-if="accProcessUrl" :url="accProcessUrl" />
+                  <!-- <D3 v-if="accProcessUrl" :url="accProcessUrl" />/ -->
+                  <img
+                    v-if="accImage"
+                    style="width: 100%; height: 100%; object-fit: contain"
+                    :src="accImage"
+                  />
                   <Empty v-else style="color: #ccc" />
                   <div
                     v-if="isHandling"

@@ -78,26 +78,26 @@ if len(sys.argv) > 1:
     for j in range(channel_num):
         with open(sensor_file[j], "rb") as file:
             binary_content = file.read()
-    channel_count = binary_content[-1]  # 获得传感器编号
-    # print(channel_count)  # 打印传感器编号
+        channel_count = binary_content[-1]  # 获得传感器编号
 
-    for i in range(acc_num):  # 对加速度数据进行解编
-        acc_temp = int.from_bytes(binary_content[3 * i : 3 * i + 3], byteorder="little")
-        if acc_temp >= 8388608:
-            a = (acc_temp - 16777216) / 3750000
-        else:
-            a = acc_temp / 3750000
-        acc_data[i, j] = a  # 将解编后的加速度数据存入加速度数据数组
-    t = int.from_bytes(
-        binary_content[-9:-1], byteorder="little"
-    )  # 对采集时刻数据进行解编
-    time_data[j] = t  # 将解编后的采集时刻数据存入采集时刻数组
+        for i in range(acc_num):  # 对加速度数据进行解编
+            acc_temp = int.from_bytes(
+                binary_content[3 * i : 3 * i + 3], byteorder="little"
+            )
+            if acc_temp >= 8388608:
+                a = (acc_temp - 16777216) / 3750000
+            else:
+                a = acc_temp / 3750000
+            acc_data[i, j] = a  # 将解编后的加速度数据存入加速度数据数组
+        t = int.from_bytes(
+            binary_content[-9:-1], byteorder="little"
+        )  # 对采集时刻数据进行解编
+        time_data[j] = t  # 将解编后的采集时刻数据存入采集时刻数组
 
-    data_flag[j] = 1  # 将对应通道的回传标签置1
+        data_flag[j] = 1  # 将对应通道的回传标签置1
 
-    if (
-        data_flag.sum() == channel_num
-    ):  # 判断所有数据是否都已经回传成功，如成功则保存加速度和采集时刻数据
+    # 判断所有数据是否都已经回传成功，如成功则保存加速度和采集时刻数据
+    if data_flag.sum() == channel_num:
         acc = sync_without_source(acc_all_data=acc_data, time_all_data=time_data)
         if len(sys.argv) >= 3:
             transfer_time = sys.argv[2]
@@ -110,6 +110,7 @@ if len(sys.argv) > 1:
         np.savetxt("./temp/acc" + transfer_time + ".csv", acc_data, delimiter=",")
         np.savetxt("./temp/time" + transfer_time + ".csv", time_data, delimiter=",")
         np.savetxt("./temp/acc_processed_" + transfer_time + ".csv", acc, delimiter=",")
+        acc_tran = np.transpose(acc)
         plt.plot(acc)
         plt.savefig(output_path)
         data = {
@@ -121,8 +122,6 @@ if len(sys.argv) > 1:
         }
         json_string = json.dumps(data)
         print(json_string)
-
-
 else:
     # print("No arguments provided.")
     data = {"status": 0, "message": "No arguments provided."}
