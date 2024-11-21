@@ -9,6 +9,7 @@ const sensors = ref<number[]>([]);
 const isHandling = ref(false);
 const accProcessUrl = ref('');
 const accImage = ref('');
+const showPlotModal = ref(false);
 
 function showStatusText(status: number) {
   if (status === 1) {
@@ -41,6 +42,7 @@ function showStatusText(status: number) {
 }
 function refresh() {
   window.location.reload();
+  window.electron.ipcRenderer.invoke('RENDER_REFRESH');
 }
 function sendGatherCommand() {
   if (!selectSensors.value.length) {
@@ -126,10 +128,12 @@ function sendPassBackCommand() {
   });
 }
 function showPlot() {
-  // if (!accProcessUrl.value) {
-  //   message.error('还未获取到回传的数据');
-  //   return;
-  // }
+  if (!accProcessUrl.value) {
+    message.error('还未获取到回传的数据');
+    return;
+  }
+
+  showPlotModal.value = true;
   window.electron.ipcRenderer.invoke('SHOW_PLOT', accProcessUrl.value);
 }
 
@@ -158,6 +162,10 @@ onMounted(async () => {
 
   window.electron.ipcRenderer.on('RECEIVE_ACC_COMPLETE', () => {
     isHandling.value = false;
+  });
+
+  window.electron.ipcRenderer.on('ACC_PLOT_CLOSE', () => {
+    showPlotModal.value = false;
   });
 });
 </script>
@@ -318,6 +326,9 @@ onMounted(async () => {
         </Row>
       </Col>
     </Row>
+    <div v-if="showPlotModal" class="modal-wrapper">
+      <div class="close-button" @click="showPlotModal = false">❌</div>
+    </div>
   </div>
 </template>
 
@@ -327,6 +338,22 @@ onMounted(async () => {
   height: 100vh;
   background-color: #3d557a;
   overflow-y: auto;
+
+  .modal-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 999;
+    background-color: rgba(0, 0, 0, 0.8);
+
+    .close-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 40px;
+      color: #fff;
+      cursor: pointer;
+    }
+  }
 
   .sensor-menu {
     padding-top: 20px;

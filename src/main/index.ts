@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron';
 import path, { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
@@ -8,7 +8,7 @@ import { initMainLog } from './log';
 // import * as csv from 'fast-csv';
 // import dayjs from 'dayjs';
 import fs from 'fs-extra';
-import { exec, spawn } from 'child_process';
+import { spawn } from 'child_process';
 
 initMainLog();
 
@@ -53,6 +53,7 @@ function createWindow(): void {
   // mqtt的处理
   ipcMain.handle('INIT_MQTT', async () => {
     console.log('------进行MQTT客户端连接------');
+    // MQTT_CLIENT?.end();
     connectMQTTServer(
       (payload: string) => {
         // 传感器状态的处理
@@ -67,7 +68,6 @@ function createWindow(): void {
       },
       async (id: number) => {
         receiveAccDataSensorIds.add(id);
-        const pythonGlobal = await checkPythonAvailability();
         console.log('collectAccDataSensorIds:', [...collectAccDataSensorIds]);
         console.log('receive acc data sensor no. -', id);
 
@@ -78,10 +78,10 @@ function createWindow(): void {
           );
           await fs.ensureDir(join(process.cwd(), './temp'));
           // 执行python脚本
-          const childProcess = spawn(
-            pythonGlobal ? 'python' : path.join(process.cwd(), './.venv/bin/python'),
-            [join(process.cwd(), './libs/save_acc.py'), args.join(',')]
-          );
+          const childProcess = spawn(path.join(process.cwd(), './python/Scripts/python.exe'), [
+            join(process.cwd(), './libs/save_acc.py'),
+            args.join(',')
+          ]);
           childProcess.stdout.on('data', (data) => {
             console.log(`stdout: ${data}`);
             try {
@@ -95,6 +95,7 @@ function createWindow(): void {
           childProcess.stderr.on('data', (data) => {
             console.log(`stderr: ${data}`);
             mainWindow.webContents.send('RECEIVE_ACC_Fail', data);
+            dialog.showErrorBox('错误', data);
           });
           childProcess.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
@@ -125,6 +126,7 @@ function createWindow(): void {
           });
           childProcess.on('error', (e) => {
             console.log(e);
+            dialog.showErrorBox('错误', e.message);
           });
         }
       }
@@ -159,18 +161,16 @@ function createWindow(): void {
   });
   // 触发展示曲线的图
   ipcMain.handle('SHOW_PLOT', async (_, src: string) => {
-    const pythonGlobal = await checkPythonAvailability();
-    console.log(pythonGlobal);
-    const childProcess = spawn(
-      pythonGlobal ? 'python' : path.join(process.cwd(), './.venv/bin/python'),
-      // join(process.cwd(), `./libs/${process.platform === 'win32' ? 'plot.exe' : 'plot'}`),
-      [path.join(process.cwd(), './libs/plot.py'), join(process.cwd(), src)]
-    );
+    const childProcess = spawn(path.join(process.cwd(), './python/Scripts/python.exe'), [
+      path.join(process.cwd(), './libs/plot.py'),
+      join(process.cwd(), src)
+    ]);
     childProcess.stdout.on('data', (data) => {
       console.log(`stdout: ${data}`);
     });
     childProcess.stderr.on('data', (data) => {
       console.log(`stderr: ${data}`);
+      dialog.showErrorBox('错误', data);
     });
     childProcess.on('close', (code) => {
       console.log(`child process exited with code ${code}`);
@@ -184,6 +184,7 @@ function createWindow(): void {
     });
     childProcess.on('error', (e) => {
       console.log(e);
+      dialog.showErrorBox('错误', e.message);
     });
   });
   // 触发了刷新就要重置回传的数组
@@ -230,33 +231,3 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
-
-function checkPythonAvailability() {
-  return new Promise((resolve) => {
-    exec('python --version', (error, stdout, stderr) => {
-      if (error) {
-        // 如果执行命令时出现错误，则 Python 可能不可用
-        console.error(`Error: ${error.message}`);
-        if (stderr) {
-          console.error(`stderr: ${stderr}`);
-        }
-        resolve(false); // Python 不可用
-      } else {
-        // 如果命令成功执行，则 Python 可用
-        console.log(`stdout: ${stdout}`);
-        resolve(true); // Python 可用
-      }
-    }).on('close', (code) => {
-      console.log(code);
-    });
-  });
-}
-
-// 使用示例
-checkPythonAvailability().then((isAvailable) => {
-  if (isAvailable) {
-    console.log('Python is globally available.');
-  } else {
-    console.log('Python is not globally available.');
-  }
-});

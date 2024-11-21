@@ -12,7 +12,7 @@ if len(sys.argv) > 1:
     plt.show()
 else:
     acc = np.loadtxt(
-        "/Users/yanghui/Desktop/codes/sensor-project/test/acc_processed_new3.csv",
+        "../temp/acc_9_processed.csv",
         delimiter=",",
     )
     # acc_t = np.transpose(acc)

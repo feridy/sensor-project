@@ -16,6 +16,7 @@ extraFiles:
   - log
   - temp
   - libs
+  - python
 win:
   executableName: sensor-project
 nsis:
