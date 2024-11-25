@@ -182,7 +182,10 @@ function createWindow(): void {
     });
     childProcess.stderr.on('data', (data) => {
       console.log(`stderr: ${data}`);
-      mainWindow.webContents.send('RECEIVE_ACC_Fail', `${data}`);
+      if (!`${data}`.includes('libpng warning:')) {
+        mainWindow.webContents.send('RECEIVE_ACC_Fail', `${data}`);
+      }
+      // mainWindow.webContents.send('RECEIVE_ACC_Fail', `${data}`);
       childProcess.kill();
       // dialog.showErrorBox('错误', data);
     });
