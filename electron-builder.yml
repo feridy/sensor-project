@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: sensor-project
+productName: sensor_project
 directories:
   buildResources: build
 files:
@@ -18,12 +18,14 @@ extraFiles:
   - libs
   - python
 win:
-  executableName: sensor-project
+  executableName: sensor_project
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

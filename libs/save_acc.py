@@ -121,6 +121,7 @@ if len(sys.argv) > 1:
             "acc_processed": "./temp/acc_processed_" + transfer_time + ".csv",
         }
         json_string = json.dumps(data)
+        plt.close("all")
         print(json_string)
 else:
     # print("No arguments provided.")

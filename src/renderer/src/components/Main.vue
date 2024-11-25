@@ -167,6 +167,13 @@ onMounted(async () => {
   window.electron.ipcRenderer.on('ACC_PLOT_CLOSE', () => {
     showPlotModal.value = false;
   });
+
+  window.electron.ipcRenderer.on('RECEIVE_ACC_Fail', (_, message) => {
+    Modal.error({
+      title: '错误',
+      content: message
+    });
+  });
 });
 </script>
 <template>

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import path, { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
@@ -8,9 +8,13 @@ import { initMainLog } from './log';
 // import * as csv from 'fast-csv';
 // import dayjs from 'dayjs';
 import fs from 'fs-extra';
-import { spawn } from 'child_process';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 
 initMainLog();
+
+let saveAccChildProcess: ChildProcessWithoutNullStreams | null = null;
+
+let showPlotChildProcess: ChildProcessWithoutNullStreams | null = null;
 
 function createWindow(): void {
   // Create the browser window.
@@ -78,7 +82,7 @@ function createWindow(): void {
           );
           await fs.ensureDir(join(process.cwd(), './temp'));
           // 执行python脚本
-          const childProcess = spawn(path.join(process.cwd(), './python/Scripts/python.exe'), [
+          const childProcess = spawn(path.join(process.cwd(), './python/python.exe'), [
             join(process.cwd(), './libs/save_acc.py'),
             args.join(',')
           ]);
@@ -95,7 +99,8 @@ function createWindow(): void {
           childProcess.stderr.on('data', (data) => {
             console.log(`stderr: ${data}`);
             mainWindow.webContents.send('RECEIVE_ACC_Fail', data);
-            dialog.showErrorBox('错误', data);
+            childProcess.kill();
+            // dialog.showErrorBox('错误', data);
           });
           childProcess.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
@@ -123,11 +128,17 @@ function createWindow(): void {
 
             collectAccDataSensorIds.clear();
             receiveAccDataSensorIds.clear();
+
+            saveAccChildProcess = null;
           });
           childProcess.on('error', (e) => {
             console.log(e);
-            dialog.showErrorBox('错误', e.message);
+            mainWindow.webContents.send('RECEIVE_ACC_Fail', e.message);
+            childProcess.kill();
+            // dialog.showErrorBox('错误', e.message);
           });
+
+          saveAccChildProcess = childProcess;
         }
       }
     );
@@ -161,7 +172,8 @@ function createWindow(): void {
   });
   // 触发展示曲线的图
   ipcMain.handle('SHOW_PLOT', async (_, src: string) => {
-    const childProcess = spawn(path.join(process.cwd(), './python/Scripts/python.exe'), [
+    showPlotChildProcess?.kill();
+    const childProcess = spawn(path.join(process.cwd(), './python/python.exe'), [
       path.join(process.cwd(), './libs/plot.py'),
       join(process.cwd(), src)
     ]);
@@ -170,7 +182,9 @@ function createWindow(): void {
     });
     childProcess.stderr.on('data', (data) => {
       console.log(`stderr: ${data}`);
-      dialog.showErrorBox('错误', data);
+      mainWindow.webContents.send('RECEIVE_ACC_Fail', data);
+      childProcess.kill();
+      // dialog.showErrorBox('错误', data);
     });
     childProcess.on('close', (code) => {
       console.log(`child process exited with code ${code}`);
@@ -181,11 +195,15 @@ function createWindow(): void {
       }
 
       mainWindow.webContents.send('ACC_PLOT_CLOSE', src);
+      showPlotChildProcess = null;
     });
     childProcess.on('error', (e) => {
       console.log(e);
-      dialog.showErrorBox('错误', e.message);
+      mainWindow.webContents.send('RECEIVE_ACC_Fail', e.message);
+      childProcess.kill();
+      // dialog.showErrorBox('错误', e.message);
     });
+    showPlotChildProcess = childProcess;
   });
   // 触发了刷新就要重置回传的数组
   ipcMain.handle('RENDER_REFRESH', () => {
@@ -227,6 +245,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+  saveAccChildProcess?.kill();
+  showPlotChildProcess?.kill();
 });
 
 // In this file you can include the rest of your app"s specific main process
