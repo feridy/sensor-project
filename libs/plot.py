@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import json
+import warnings
+
+# 忽略所有警告
+warnings.filterwarnings("ignore")
 
 if len(sys.argv) > 1:
     # 要展示曲线的.cvs的路径

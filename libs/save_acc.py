@@ -4,6 +4,10 @@ import numpy as np
 import os
 import json
 import matplotlib.pyplot as plt
+import warnings
+
+# 忽略所有警告
+warnings.filterwarnings("ignore")
 
 
 def sync_without_source(acc_all_data, time_all_data):
